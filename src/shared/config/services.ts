@@ -1,0 +1,4 @@
+export const TICKET_SERVICE = 'TICKET_SERVICE';
+export const CHAT_SERVICE = 'CHAT_SERVICE';
+export const TENANT_SERVICE = 'TENANT_SERVICE';
+export const NATS_SERVICE = 'NATS_SERVICE';

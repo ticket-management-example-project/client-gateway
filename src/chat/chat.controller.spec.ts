@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { NATS_SERVICE } from 'src/shared/config/services';
 import { ChatController } from './chat.controller';
-import { ChatService } from './chat.service';
 
 describe('ChatController', () => {
   let controller: ChatController;
@@ -8,7 +8,7 @@ describe('ChatController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ChatController],
-      providers: [ChatService],
+      providers: [{ provide: NATS_SERVICE, useValue: { send: jest.fn() } }],
     }).compile();
 
     controller = module.get<ChatController>(ChatController);

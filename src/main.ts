@@ -1,8 +1,13 @@
+// Must start before any other module is imported/instantiated so the
+// TracerProvider is registered globally before the first span is created.
+import { startTracing } from 'src/shared/otel/tracing';
+startTracing();
+
+import { Logger, RequestMethod, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { envs } from 'src/shared/config/envs';
-import { RpcCustomExceptionFilter } from 'src/shared/config/exceptions/rpc-custom-exception.filter';
+import { DomainErrorFilter } from 'src/shared/config/exceptions/domain-error.filter';
 import { AppModule } from './app.module';
-import { Logger, RequestMethod, ValidationPipe } from '@nestjs/common';
 
 async function bootstrap() {
   const logger = new Logger('Main-Gateway');
@@ -14,6 +19,10 @@ async function bootstrap() {
         path: '',
         method: RequestMethod.GET,
       },
+      {
+        path: 'health',
+        method: RequestMethod.GET,
+      },
     ],
   });
   app.useGlobalPipes(
@@ -23,7 +32,7 @@ async function bootstrap() {
     }),
   );
 
-  app.useGlobalFilters(new RpcCustomExceptionFilter());
+  app.useGlobalFilters(new DomainErrorFilter());
   await app.listen(envs.port);
   logger.log(`Gateway running on port ${envs.port}`);
 }

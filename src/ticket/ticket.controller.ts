@@ -1,4 +1,4 @@
-import { Controller, Get, Inject, Param } from '@nestjs/common';
+import { Controller, Get, Inject } from '@nestjs/common';
 import { ClientProxy, RpcException } from '@nestjs/microservices';
 import { catchError } from 'rxjs';
 import { NATS_SERVICE } from 'src/shared/config/services';
@@ -12,17 +12,9 @@ export class TicketController {
   //   return this.ticketService.create(createTicketDto);
   // }
   //
-  // @Get()
-  // findAll() {
-  //   return this.ticketService.findAll();
-  // }
-  //
-  // @Get(':id')
-  // findOne(@Param('id') id: string) {
   @Get()
   findOne() {
-    console.log('g');
-    return this.client.send({ cmd: 'caaaab' }, {}).pipe(
+    return this.client.send({ cmd: 'find_one_ticket' }, {}).pipe(
       catchError((error) => {
         throw new RpcException(error);
       }),

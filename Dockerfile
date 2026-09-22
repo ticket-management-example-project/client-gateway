@@ -21,6 +21,8 @@ FROM node:22-alpine3.19 as prod
 EXPOSE 3000
 WORKDIR /app
 ENV APP_VERSION=${APP_VERSION}
+ENV NODE_ENV=production
+USER node
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 

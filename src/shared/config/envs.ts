@@ -7,6 +7,8 @@ interface Envs {
   CLERK_SECRET_KEY: string;
   CLERK_PUBLISHABLE_KEY?: string;
   CLERK_AUTHORIZED_PARTIES?: string[];
+  KAFKA_BROKERS: string[];
+  KAFKA_GROUP_ID: string;
 }
 
 const envsSchema = joi
@@ -16,6 +18,8 @@ const envsSchema = joi
     CLERK_SECRET_KEY: joi.string().required(),
     CLERK_PUBLISHABLE_KEY: joi.string().optional(),
     CLERK_AUTHORIZED_PARTIES: joi.array().items(joi.string()).optional(),
+    KAFKA_BROKERS: joi.array().items(joi.string()).required(),
+    KAFKA_GROUP_ID: joi.string().default('client-gateway-realtime'),
   })
   .unknown(true);
 
@@ -23,6 +27,7 @@ const { error, value } = envsSchema.validate({
   ...process.env,
   NATS_SERVERS: process.env.NATS_SERVERS?.split(','),
   CLERK_AUTHORIZED_PARTIES: process.env.CLERK_AUTHORIZED_PARTIES?.split(','),
+  KAFKA_BROKERS: process.env.KAFKA_BROKERS?.split(','),
 });
 
 if (error) {
@@ -37,4 +42,6 @@ export const envs = {
   clerkSecretKey: envVars.CLERK_SECRET_KEY,
   clerkPublishableKey: envVars.CLERK_PUBLISHABLE_KEY,
   clerkAuthorizedParties: envVars.CLERK_AUTHORIZED_PARTIES,
+  kafkaBrokers: envVars.KAFKA_BROKERS,
+  kafkaGroupId: envVars.KAFKA_GROUP_ID,
 };

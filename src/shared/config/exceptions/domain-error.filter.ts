@@ -36,6 +36,10 @@ const CODE_TO_STATUS: Record<string, number> = {
   NOT_FOUND: 404,
   CONFLICT: 409,
   INTERNAL_ERROR: 500,
+  // Story 1.3: Organization exists but isn't `ready` yet (`provisioning`/
+  // `failed`) -- a Tenant cannot be created for it. Domain conflict, not a
+  // generic 500 (see spec I/O matrix).
+  ORGANIZATION_NOT_READY: 409,
 };
 
 function statusFromCode(code: string): number {
@@ -153,10 +157,7 @@ export class DomainErrorFilter implements ExceptionFilter {
     };
   }
 
-  private fromRpcError(
-    error: unknown,
-    correlationId: string,
-  ): NormalizedError {
+  private fromRpcError(error: unknown, correlationId: string): NormalizedError {
     if (looksLikeRpcErrorShape(error)) {
       const code = error.code ?? 'INTERNAL_ERROR';
       return {

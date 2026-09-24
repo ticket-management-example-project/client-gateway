@@ -10,7 +10,9 @@ import { DomainErrorFilter } from './domain-error.filter';
 describe('DomainErrorFilter', () => {
   const filter = new DomainErrorFilter();
 
-  const makeHost = (request: Record<string, unknown> = { correlationId: 'corr-1' }) => {
+  const makeHost = (
+    request: Record<string, unknown> = { correlationId: 'corr-1' },
+  ) => {
     const json = jest.fn();
     const status = jest.fn().mockReturnValue({ json });
     const response = { status };
@@ -41,6 +43,25 @@ describe('DomainErrorFilter', () => {
       message: 'Owner already has an Organization',
       correlationId: 'corr-1',
       details: { ownerId: 'owner-1' },
+    });
+  });
+
+  it('maps ORGANIZATION_NOT_READY (Story 1.3) to 409 via the explicit CODE_TO_STATUS entry', () => {
+    const { host, status, json } = makeHost();
+    const exception = new RpcException({
+      code: 'ORGANIZATION_NOT_READY',
+      message: 'Organization "org-1" is not ready (status: provisioning)',
+      details: { organizationId: 'org-1', status: 'provisioning' },
+    });
+
+    filter.catch(exception, host);
+
+    expect(status).toHaveBeenCalledWith(409);
+    expect(json).toHaveBeenCalledWith({
+      code: 'ORGANIZATION_NOT_READY',
+      message: 'Organization "org-1" is not ready (status: provisioning)',
+      correlationId: 'corr-1',
+      details: { organizationId: 'org-1', status: 'provisioning' },
     });
   });
 

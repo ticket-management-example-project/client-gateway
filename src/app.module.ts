@@ -10,7 +10,9 @@ import { HealthModule } from './health/health.module';
 import { OrganizationModule } from './organization/organization.module';
 import { RealtimeModule } from './realtime/realtime.module';
 import { TenantModule } from './tenant/tenant.module';
+import { TenantAgentModule } from './tenant-agent/tenant-agent.module';
 import { TicketModule } from './ticket/ticket.module';
+import { WebhooksModule } from './webhooks/webhooks.module';
 
 @Module({
   imports: [
@@ -18,10 +20,12 @@ import { TicketModule } from './ticket/ticket.module';
     KafkaModule,
     AuthModule,
     TenantModule,
+    TenantAgentModule,
     TicketModule,
     ChatModule,
     OrganizationModule,
     RealtimeModule,
+    WebhooksModule,
     HealthModule,
   ],
   controllers: [AppController],

@@ -42,7 +42,8 @@
     "nats": "^2.28.2",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.1",
-    "socket.io": "^4.8.1"
+    "socket.io": "^4.8.1",
+    "svix": "^1.99.1"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.0.0",

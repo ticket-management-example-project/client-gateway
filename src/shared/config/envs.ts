@@ -7,6 +7,7 @@ interface Envs {
   CLERK_SECRET_KEY: string;
   CLERK_PUBLISHABLE_KEY?: string;
   CLERK_AUTHORIZED_PARTIES?: string[];
+  CLERK_WEBHOOK_SECRET: string;
   KAFKA_BROKERS: string[];
   KAFKA_GROUP_ID: string;
 }
@@ -18,6 +19,9 @@ const envsSchema = joi
     CLERK_SECRET_KEY: joi.string().required(),
     CLERK_PUBLISHABLE_KEY: joi.string().optional(),
     CLERK_AUTHORIZED_PARTIES: joi.array().items(joi.string()).optional(),
+    // Story 1.4: verifies the Svix signature on POST /webhooks/clerk (see
+    // spec Boundaries & Constraints -- required, no fallback).
+    CLERK_WEBHOOK_SECRET: joi.string().required(),
     KAFKA_BROKERS: joi.array().items(joi.string()).required(),
     KAFKA_GROUP_ID: joi.string().default('client-gateway-realtime'),
   })
@@ -42,6 +46,7 @@ export const envs = {
   clerkSecretKey: envVars.CLERK_SECRET_KEY,
   clerkPublishableKey: envVars.CLERK_PUBLISHABLE_KEY,
   clerkAuthorizedParties: envVars.CLERK_AUTHORIZED_PARTIES,
+  clerkWebhookSecret: envVars.CLERK_WEBHOOK_SECRET,
   kafkaBrokers: envVars.KAFKA_BROKERS,
   kafkaGroupId: envVars.KAFKA_GROUP_ID,
 };

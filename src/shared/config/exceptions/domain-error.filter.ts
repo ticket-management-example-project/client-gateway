@@ -40,6 +40,10 @@ const CODE_TO_STATUS: Record<string, number> = {
   // `failed`) -- a Tenant cannot be created for it. Domain conflict, not a
   // generic 500 (see spec I/O matrix).
   ORGANIZATION_NOT_READY: 409,
+  // Story 1.4: email already invited/active -- same Tenant or a different
+  // one in the same Organization (spec I/O matrix, both 409).
+  AGENT_ALREADY_INVITED: 409,
+  AGENT_ALREADY_IN_ANOTHER_TENANT: 409,
 };
 
 function statusFromCode(code: string): number {

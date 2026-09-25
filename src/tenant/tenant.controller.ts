@@ -48,6 +48,11 @@ export class TenantController {
   ) {
     await this.assertIsOwner(organizationId, userId);
 
+    // Story 2.1: `create_tenant`'s NATS response now also includes `slug`
+    // (tenant-microservice/CreateTenantHandler) -- forwarded to the owner
+    // as-is below, no DTO/shape change needed here, so they have the
+    // Requester Portal link (`/t/:slug`) to share immediately after
+    // creating the Tenant.
     return firstValueFrom(
       this.client
         .send(

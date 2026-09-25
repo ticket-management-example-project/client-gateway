@@ -1,20 +1,56 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { NATS_SERVICE } from 'src/shared/config/services';
+import { of } from 'rxjs';
 import { TicketController } from './ticket.controller';
 
 describe('TicketController', () => {
-  let controller: TicketController;
+  const makeController = (response: unknown = { id: 't-1' }) => {
+    const client = { send: jest.fn().mockReturnValue(of(response)) };
+    return {
+      controller: new TicketController(client as any),
+      client,
+    };
+  };
 
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      controllers: [TicketController],
-      providers: [{ provide: NATS_SERVICE, useValue: { send: jest.fn() } }],
-    }).compile();
+  it('create() sends create_ticket with tenantSlug/subject/description/correlationId and no auth check', async () => {
+    const { controller, client } = makeController({
+      id: 't-1',
+      tenantId: 'tenant-1',
+      subject: 'Asunto',
+      description: 'Descripción',
+      status: 'open',
+      trackingToken: 'abc123',
+    });
 
-    controller = module.get<TicketController>(TicketController);
+    const result = await controller.create(
+      'mi-empresa',
+      { subject: 'Asunto', description: 'Descripción' },
+      { correlationId: 'req-1' } as any,
+    );
+
+    expect(client.send).toHaveBeenCalledWith(
+      { cmd: 'create_ticket' },
+      {
+        tenantSlug: 'mi-empresa',
+        subject: 'Asunto',
+        description: 'Descripción',
+        correlationId: 'req-1',
+      },
+    );
+    expect(result.trackingToken).toBe('abc123');
   });
 
-  it('should be defined', () => {
-    expect(controller).toBeDefined();
+  it('trackByToken() sends get_ticket_by_token with the token and no auth check', async () => {
+    const { controller, client } = makeController({
+      id: 't-1',
+      status: 'open',
+      chatThread: [],
+    });
+
+    const result = await controller.trackByToken('abc123');
+
+    expect(client.send).toHaveBeenCalledWith(
+      { cmd: 'get_ticket_by_token' },
+      { token: 'abc123' },
+    );
+    expect(result.chatThread).toEqual([]);
   });
 });

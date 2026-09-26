@@ -9,7 +9,7 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 import { verifyToken } from '@clerk/backend';
-import { firstValueFrom, timeout } from 'rxjs';
+import { firstValueFrom, from, timeout } from 'rxjs';
 import { Server, Socket } from 'socket.io';
 import { envs } from 'src/shared/config/envs';
 import { NATS_SERVICE } from 'src/shared/config/services';
@@ -39,6 +39,10 @@ interface SocketData {
 interface TicketRecord {
   id: string;
   tenantId: string;
+  /** Story 3.2: `null` when the Requester never captured one at creation --
+   * `ChatEventsConsumer` uses this to resolve the "new reply" email's
+   * destination. */
+  contactEmail: string | null;
 }
 
 /**
@@ -190,6 +194,25 @@ export class ChatGateway implements OnGatewayConnection {
     this.server.to(this.room(ticketId)).emit(MESSAGE_SEEN_EVENT, payload);
   }
 
+  /**
+   * Story 3.2: `ChatEventsConsumer`'s email-notification gate (spec I/O
+   * matrix: "el email solo se dispara cuando el Requester no está
+   * conectado"). Inspects the room's LIVE sockets via Socket.IO's own
+   * `fetchSockets()` (never a separate presence store) -- a Requester who
+   * closed the tab is simply absent from this list, no explicit disconnect
+   * bookkeeping needed.
+   */
+  async isRequesterConnected(ticketId: string): Promise<boolean> {
+    const sockets = await firstValueFrom(
+      from(this.server.in(this.room(ticketId)).fetchSockets()).pipe(
+        timeout(RPC_TIMEOUT_MS),
+      ),
+    );
+    return sockets.some(
+      (socket) => (socket.data as SocketData | undefined)?.actorType === 'requester',
+    );
+  }
+
   private room(ticketId: string): string {
     return `ticket:${ticketId}`;
   }
@@ -204,7 +227,10 @@ export class ChatGateway implements OnGatewayConnection {
     return undefined;
   }
 
-  private async fetchTicket(ticketId: string): Promise<TicketRecord | null> {
+  /** Public: also called directly by `ChatEventsConsumer` to resolve
+   * `contactEmail` for the Story 3.2 email-notification path (spec Code
+   * Map), reusing this same NATS lookup instead of duplicating it. */
+  async fetchTicket(ticketId: string): Promise<TicketRecord | null> {
     try {
       return await firstValueFrom(
         this.client

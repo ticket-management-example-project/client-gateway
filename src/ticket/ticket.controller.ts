@@ -64,6 +64,7 @@ export class TicketController {
             tenantSlug,
             subject: dto.subject,
             description: dto.description,
+            contactEmail: dto.contactEmail,
             correlationId: request.correlationId,
           },
         )
@@ -185,6 +186,16 @@ export class TicketController {
       throw new ForbiddenException('You do not have access to this Ticket');
     }
 
-    return ticket;
+    // Explicit whitelist -- `get_ticket_by_id`'s NATS response also carries
+    // the Requester's `contactEmail` (Story 3.2), which only `ChatGateway`'s
+    // internal lookup needs; it must never reach this Agent-facing HTTP
+    // response.
+    return {
+      id: ticket.id,
+      tenantId: ticket.tenantId,
+      subject: ticket.subject,
+      description: ticket.description,
+      status: ticket.status,
+    };
   }
 }

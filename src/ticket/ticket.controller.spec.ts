@@ -39,10 +39,45 @@ describe('TicketController', () => {
         tenantSlug: 'mi-empresa',
         subject: 'Asunto',
         description: 'Descripción',
+        contactEmail: undefined,
         correlationId: 'req-1',
       },
     );
     expect(result.trackingToken).toBe('abc123');
+  });
+
+  it('create() forwards contactEmail when the Requester captured one', async () => {
+    const { controller, client } = makeController({
+      id: 't-1',
+      tenantId: 'tenant-1',
+      subject: 'Asunto',
+      description: 'Descripción',
+      status: 'open',
+      trackingToken: 'abc123',
+      contactEmail: 'maria@example.com',
+    });
+
+    const result = await controller.create(
+      'mi-empresa',
+      {
+        subject: 'Asunto',
+        description: 'Descripción',
+        contactEmail: 'maria@example.com',
+      },
+      { correlationId: 'req-1' } as any,
+    );
+
+    expect(client.send).toHaveBeenCalledWith(
+      { cmd: 'create_ticket' },
+      {
+        tenantSlug: 'mi-empresa',
+        subject: 'Asunto',
+        description: 'Descripción',
+        contactEmail: 'maria@example.com',
+        correlationId: 'req-1',
+      },
+    );
+    expect(result.contactEmail).toBe('maria@example.com');
   });
 
   it('trackByToken() sends get_ticket_by_token with the token and no auth check', async () => {
@@ -112,6 +147,30 @@ describe('TicketController', () => {
     );
     expect(tenantMembership.isAgentOrOwner).toHaveBeenCalledWith('user_1', 't-1');
     expect(result.id).toBe('42');
+  });
+
+  it("getById() never leaks the Requester's contactEmail into the Agent-facing response", async () => {
+    const { controller } = makeController(
+      {
+        id: '42',
+        tenantId: 't-1',
+        subject: 'Asunto',
+        description: 'Descripción',
+        status: 'open',
+        contactEmail: 'maria@example.com',
+      },
+      true,
+    );
+
+    const result = await controller.getById('42', 'user_1');
+
+    expect(result).toEqual({
+      id: '42',
+      tenantId: 't-1',
+      subject: 'Asunto',
+      description: 'Descripción',
+      status: 'open',
+    });
   });
 
   it('getById() throws NotFoundException when the ticket does not resolve', async () => {

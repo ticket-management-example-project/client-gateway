@@ -1,6 +1,7 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { NatsModule } from 'src/shared/transports/nats.module';
 import { KafkaModule } from 'src/shared/kafka/kafka.module';
+import { EmailModule } from 'src/shared/email/email.module';
 import { CorrelationIdMiddleware } from 'src/shared/middleware/correlation-id.middleware';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -18,6 +19,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
   imports: [
     NatsModule,
     KafkaModule,
+    EmailModule,
     AuthModule,
     TenantModule,
     TenantAgentModule,

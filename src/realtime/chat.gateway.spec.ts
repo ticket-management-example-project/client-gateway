@@ -19,7 +19,11 @@ describe('ChatGateway', () => {
         .mockResolvedValue(overrides?.isAgentOrOwner ?? true),
     };
     const gateway = new ChatGateway(client as any, tenantMembership as any);
-    const server = { to: jest.fn().mockReturnThis(), emit: jest.fn() };
+    const server = {
+      to: jest.fn().mockReturnThis(),
+      emit: jest.fn(),
+      in: jest.fn().mockReturnValue({ fetchSockets: jest.fn().mockResolvedValue([]) }),
+    };
     (gateway as any).server = server;
     return { gateway, client, server, tenantMembership };
   };
@@ -213,6 +217,59 @@ describe('ChatGateway', () => {
     expect(server.emit).toHaveBeenCalledWith('chat_message_seen', {
       ticketId: '42',
       viewerType: 'requester',
+    });
+  });
+
+  describe('isRequesterConnected', () => {
+    it('returns true when a socket with actorType "requester" is in the room', async () => {
+      const { gateway, server } = makeGateway();
+      server.in.mockReturnValue({
+        fetchSockets: jest
+          .fn()
+          .mockResolvedValue([
+            { data: { actorType: 'agent' } },
+            { data: { actorType: 'requester' } },
+          ]),
+      });
+
+      await expect(gateway.isRequesterConnected('42')).resolves.toBe(true);
+      expect(server.in).toHaveBeenCalledWith('ticket:42');
+    });
+
+    it('returns false when only agent sockets (or none) are in the room', async () => {
+      const { gateway, server } = makeGateway();
+      server.in.mockReturnValue({
+        fetchSockets: jest.fn().mockResolvedValue([{ data: { actorType: 'agent' } }]),
+      });
+
+      await expect(gateway.isRequesterConnected('42')).resolves.toBe(false);
+    });
+
+    it('returns false when the room is empty', async () => {
+      const { gateway } = makeGateway();
+
+      await expect(gateway.isRequesterConnected('42')).resolves.toBe(false);
+    });
+  });
+
+  describe('fetchTicket', () => {
+    it('is public and resolves contactEmail from get_ticket_by_id', async () => {
+      const { gateway, client } = makeGateway();
+      client.send.mockReturnValue(
+        of({ id: '42', tenantId: 't-1', contactEmail: 'maria@example.com' }),
+      );
+
+      const ticket = await gateway.fetchTicket('42');
+
+      expect(client.send).toHaveBeenCalledWith(
+        { cmd: 'get_ticket_by_id' },
+        { id: '42' },
+      );
+      expect(ticket).toEqual({
+        id: '42',
+        tenantId: 't-1',
+        contactEmail: 'maria@example.com',
+      });
     });
   });
 });

@@ -1,9 +1,11 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
   HttpCode,
   Inject,
+  NotFoundException,
   Param,
   Post,
   Req,
@@ -15,9 +17,18 @@ import { ClerkAuthGuard } from 'src/auth/clerk-auth.guard';
 import { CurrentUserId } from 'src/auth/current-user-id.decorator';
 import { NATS_SERVICE } from 'src/shared/config/services';
 import { RequestWithCorrelationId } from 'src/shared/middleware/correlation-id.middleware';
+import { TenantMembershipService } from 'src/tenant/tenant-membership.service';
 import { CreateTicketDto } from './dto/create-ticket.dto';
 
 const RPC_TIMEOUT_MS = 5000;
+
+interface TicketRecord {
+  id: string;
+  tenantId: string;
+  subject: string;
+  description: string;
+  status: string;
+}
 
 /**
  * Story 2.1: the Requester Portal's two PUBLIC endpoints -- deliberately no
@@ -32,7 +43,10 @@ const RPC_TIMEOUT_MS = 5000;
  */
 @Controller()
 export class TicketController {
-  constructor(@Inject(NATS_SERVICE) private readonly client: ClientProxy) {}
+  constructor(
+    @Inject(NATS_SERVICE) private readonly client: ClientProxy,
+    private readonly tenantMembership: TenantMembershipService,
+  ) {}
 
   /** Requester Portal's ticket-creation form (`console`'s `/t/:slug`). */
   @Post('t/:tenantSlug/tickets')
@@ -133,5 +147,44 @@ export class TicketController {
           }),
         ),
     );
+  }
+
+  /** Story 3.1: Console's new Agent-side ticket detail page (`/tickets/:ticketId`)
+   * -- unlike every endpoint above, `ticketId` is a raw aggregate id, not the
+   * Requester's opaque tracking token, so this is PROTECTED and additionally
+   * gated by Tenant/Organization membership (spec Design Notes: same check
+   * `ChatGateway` uses for its Agent auth branch) -- an authenticated Agent
+   * of Tenant A must never read a Ticket belonging to Tenant B just by
+   * guessing/incrementing its id. */
+  @Get('tickets/:ticketId')
+  @UseGuards(ClerkAuthGuard)
+  async getById(
+    @Param('ticketId') ticketId: string,
+    @CurrentUserId() userId: string,
+  ) {
+    const ticket = await firstValueFrom(
+      this.client
+        .send<TicketRecord | null>({ cmd: 'get_ticket_by_id' }, { id: ticketId })
+        .pipe(
+          timeout(RPC_TIMEOUT_MS),
+          catchError((error) => {
+            throw new RpcException(error);
+          }),
+        ),
+    );
+
+    if (!ticket) {
+      throw new NotFoundException('Ticket not found');
+    }
+
+    const allowed = await this.tenantMembership.isAgentOrOwner(
+      userId,
+      ticket.tenantId,
+    );
+    if (!allowed) {
+      throw new ForbiddenException('You do not have access to this Ticket');
+    }
+
+    return ticket;
   }
 }

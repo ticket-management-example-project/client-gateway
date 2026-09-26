@@ -7,9 +7,12 @@ import {
   Param,
   Post,
   Req,
+  UseGuards,
 } from '@nestjs/common';
 import { ClientProxy, RpcException } from '@nestjs/microservices';
 import { catchError, firstValueFrom, timeout } from 'rxjs';
+import { ClerkAuthGuard } from 'src/auth/clerk-auth.guard';
+import { CurrentUserId } from 'src/auth/current-user-id.decorator';
 import { NATS_SERVICE } from 'src/shared/config/services';
 import { RequestWithCorrelationId } from 'src/shared/middleware/correlation-id.middleware';
 import { CreateTicketDto } from './dto/create-ticket.dto';
@@ -72,6 +75,63 @@ export class TicketController {
           throw new RpcException(error);
         }),
       ),
+    );
+  }
+
+  /** Story 2.2: links the Ticket behind `token` to the caller's lightweight
+   * Clerk account -- PROTECTED, unlike the two endpoints above (an
+   * anonymous caller has no account to link to). `requesterId` is Clerk's
+   * `sub` claim, resolved by `ClerkAuthGuard`/`CurrentUserId()`, never taken
+   * from the request body. */
+  @Post('tickets/track/:token/link-account')
+  @HttpCode(200)
+  @UseGuards(ClerkAuthGuard)
+  async linkToAccount(
+    @Param('token') token: string,
+    @CurrentUserId() requesterId: string,
+    @Req() request: RequestWithCorrelationId,
+  ) {
+    return firstValueFrom(
+      this.client
+        .send(
+          { cmd: 'link_ticket_to_account' },
+          { token, requesterId, correlationId: request.correlationId },
+        )
+        .pipe(
+          timeout(RPC_TIMEOUT_MS),
+          catchError((error) => {
+            throw new RpcException(error);
+          }),
+        ),
+    );
+  }
+
+  /** Story 2.2: the Requester Portal's account-history screen (`console`'s
+   * `/t/:slug/my-tickets`) -- every Ticket linked to the caller's account,
+   * scoped to `tenantSlug` alone (never cross-Tenant, I/O matrix). */
+  @Get('t/:tenantSlug/my-tickets')
+  @UseGuards(ClerkAuthGuard)
+  async myTickets(
+    @Param('tenantSlug') tenantSlug: string,
+    @CurrentUserId() requesterId: string,
+    @Req() request: RequestWithCorrelationId,
+  ) {
+    return firstValueFrom(
+      this.client
+        .send(
+          { cmd: 'get_tickets_by_requester' },
+          {
+            tenantSlug,
+            requesterId,
+            correlationId: request.correlationId,
+          },
+        )
+        .pipe(
+          timeout(RPC_TIMEOUT_MS),
+          catchError((error) => {
+            throw new RpcException(error);
+          }),
+        ),
     );
   }
 }

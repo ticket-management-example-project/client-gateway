@@ -65,6 +65,24 @@ describe('DomainErrorFilter', () => {
     });
   });
 
+  it('maps TICKET_ALREADY_LINKED (Story 2.2) to 409 via the explicit CODE_TO_STATUS entry', () => {
+    const { host, status, json } = makeHost();
+    const exception = new RpcException({
+      code: 'TICKET_ALREADY_LINKED',
+      message: 'This ticket is already linked to a different account',
+    });
+
+    filter.catch(exception, host);
+
+    expect(status).toHaveBeenCalledWith(409);
+    expect(json).toHaveBeenCalledWith({
+      code: 'TICKET_ALREADY_LINKED',
+      message: 'This ticket is already linked to a different account',
+      correlationId: 'corr-1',
+      details: undefined,
+    });
+  });
+
   it('uses exception.getStatus() directly for an HttpException with a mapped status', () => {
     const { host, status, json } = makeHost();
     const exception = new NotFoundException('Organization not found');

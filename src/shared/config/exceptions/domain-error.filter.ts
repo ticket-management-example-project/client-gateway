@@ -44,6 +44,10 @@ const CODE_TO_STATUS: Record<string, number> = {
   // one in the same Organization (spec I/O matrix, both 409).
   AGENT_ALREADY_INVITED: 409,
   AGENT_ALREADY_IN_ANOTHER_TENANT: 409,
+  // Story 2.2: a Ticket is already linked to a DIFFERENT account (I/O
+  // matrix, 409) -- not a `_NOT_FOUND`/`_ALREADY_EXISTS` suffix, so it needs
+  // its own explicit entry.
+  TICKET_ALREADY_LINKED: 409,
 };
 
 function statusFromCode(code: string): number {

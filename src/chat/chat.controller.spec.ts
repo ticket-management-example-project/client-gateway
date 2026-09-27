@@ -173,12 +173,7 @@ describe('ChatController', () => {
       const { controller } = makeController({ isAgentOrOwner: false });
 
       await expect(
-        controller.sendAsAgent(
-          '42',
-          { body: 'Hola' },
-          'user_2',
-          makeRequest(),
-        ),
+        controller.sendAsAgent('42', { body: 'Hola' }, 'user_2', makeRequest()),
       ).rejects.toThrow('You do not have access to this Ticket');
     });
 

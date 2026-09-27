@@ -68,7 +68,8 @@ describe('ChatEventsConsumer', () => {
   });
 
   it("never checks presence/notifies for a Requester's own message (a Requester never emails itself)", async () => {
-    const { consumer, domainEventConsumer, gateway, emailSender } = makeConsumer();
+    const { consumer, domainEventConsumer, gateway, emailSender } =
+      makeConsumer();
     const handler = await getHandler(domainEventConsumer, consumer);
 
     await handler({
@@ -90,7 +91,8 @@ describe('ChatEventsConsumer', () => {
   });
 
   it('an agent reply while the Requester is connected never sends an email (already live + aria-live, Story 3.1)', async () => {
-    const { consumer, domainEventConsumer, gateway, emailSender } = makeConsumer();
+    const { consumer, domainEventConsumer, gateway, emailSender } =
+      makeConsumer();
     gateway.isRequesterConnected.mockResolvedValue(true);
     const handler = await getHandler(domainEventConsumer, consumer);
 
@@ -114,7 +116,8 @@ describe('ChatEventsConsumer', () => {
   });
 
   it('an agent reply while the Requester is disconnected, WITH a captured contactEmail, sends the email', async () => {
-    const { consumer, domainEventConsumer, gateway, emailSender } = makeConsumer();
+    const { consumer, domainEventConsumer, gateway, emailSender } =
+      makeConsumer();
     gateway.isRequesterConnected.mockResolvedValue(false);
     gateway.fetchTicket.mockResolvedValue({
       id: '42',
@@ -144,7 +147,8 @@ describe('ChatEventsConsumer', () => {
   });
 
   it('skips sending when the Requester reconnects between the initial presence check and the send (re-checked immediately before send)', async () => {
-    const { consumer, domainEventConsumer, gateway, emailSender } = makeConsumer();
+    const { consumer, domainEventConsumer, gateway, emailSender } =
+      makeConsumer();
     gateway.isRequesterConnected
       .mockResolvedValueOnce(false) // initial gate
       .mockResolvedValueOnce(true); // re-check right before sending
@@ -174,7 +178,8 @@ describe('ChatEventsConsumer', () => {
   });
 
   it('an agent reply while the Requester is disconnected, WITHOUT a captured contactEmail, sends nothing', async () => {
-    const { consumer, domainEventConsumer, gateway, emailSender } = makeConsumer();
+    const { consumer, domainEventConsumer, gateway, emailSender } =
+      makeConsumer();
     gateway.isRequesterConnected.mockResolvedValue(false);
     gateway.fetchTicket.mockResolvedValue({
       id: '42',
@@ -201,7 +206,8 @@ describe('ChatEventsConsumer', () => {
   });
 
   it('an EmailSender failure is logged as a typed exception and never rethrown (broadcast already happened)', async () => {
-    const { consumer, domainEventConsumer, gateway, emailSender } = makeConsumer();
+    const { consumer, domainEventConsumer, gateway, emailSender } =
+      makeConsumer();
     gateway.isRequesterConnected.mockResolvedValue(false);
     gateway.fetchTicket.mockResolvedValue({
       id: '42',
@@ -211,7 +217,8 @@ describe('ChatEventsConsumer', () => {
     emailSender.send.mockRejectedValue(new EmailSendException('boom'));
     const handler = await getHandler(domainEventConsumer, consumer);
     const errorSpy = jest.spyOn(
-      (consumer as unknown as { logger: { error: (msg: string) => void } }).logger,
+      (consumer as unknown as { logger: { error: (msg: string) => void } })
+        .logger,
       'error',
     );
 
@@ -243,7 +250,8 @@ describe('ChatEventsConsumer', () => {
     gateway.fetchTicket.mockRejectedValue(new Error('NATS timeout'));
     const handler = await getHandler(domainEventConsumer, consumer);
     const errorSpy = jest.spyOn(
-      (consumer as unknown as { logger: { error: (msg: string) => void } }).logger,
+      (consumer as unknown as { logger: { error: (msg: string) => void } })
+        .logger,
       'error',
     );
 

@@ -22,7 +22,9 @@ describe('ChatGateway', () => {
     const server = {
       to: jest.fn().mockReturnThis(),
       emit: jest.fn(),
-      in: jest.fn().mockReturnValue({ fetchSockets: jest.fn().mockResolvedValue([]) }),
+      in: jest
+        .fn()
+        .mockReturnValue({ fetchSockets: jest.fn().mockResolvedValue([]) }),
     };
     (gateway as any).server = server;
     return { gateway, client, server, tenantMembership };
@@ -211,7 +213,10 @@ describe('ChatGateway', () => {
   it('broadcastMessageSeen emits chat_message_seen to the ticket room', () => {
     const { gateway, server } = makeGateway();
 
-    gateway.broadcastMessageSeen('42', { ticketId: '42', viewerType: 'requester' });
+    gateway.broadcastMessageSeen('42', {
+      ticketId: '42',
+      viewerType: 'requester',
+    });
 
     expect(server.to).toHaveBeenCalledWith('ticket:42');
     expect(server.emit).toHaveBeenCalledWith('chat_message_seen', {
@@ -239,7 +244,9 @@ describe('ChatGateway', () => {
     it('returns false when only agent sockets (or none) are in the room', async () => {
       const { gateway, server } = makeGateway();
       server.in.mockReturnValue({
-        fetchSockets: jest.fn().mockResolvedValue([{ data: { actorType: 'agent' } }]),
+        fetchSockets: jest
+          .fn()
+          .mockResolvedValue([{ data: { actorType: 'agent' } }]),
       });
 
       await expect(gateway.isRequesterConnected('42')).resolves.toBe(false);

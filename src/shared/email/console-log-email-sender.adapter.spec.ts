@@ -24,7 +24,8 @@ describe('ConsoleLogEmailSenderAdapter', () => {
     const adapter = new ConsoleLogEmailSenderAdapter();
     jest
       .spyOn(
-        (adapter as unknown as { logger: { log: (msg: string) => void } }).logger,
+        (adapter as unknown as { logger: { log: (msg: string) => void } })
+          .logger,
         'log',
       )
       .mockImplementation(() => {

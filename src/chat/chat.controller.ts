@@ -124,10 +124,9 @@ export class ChatController {
   private async resolveTicketByToken(token: string): Promise<TicketRecord> {
     const ticketId = await firstValueFrom(
       this.client
-        .send<{ ticketId: string | null }>(
-          { cmd: 'verify_tracking_token' },
-          { token },
-        )
+        .send<{
+          ticketId: string | null;
+        }>({ cmd: 'verify_tracking_token' }, { token })
         .pipe(
           timeout(RPC_TIMEOUT_MS),
           catchError((error) => {
@@ -142,7 +141,10 @@ export class ChatController {
 
     const ticket = await firstValueFrom(
       this.client
-        .send<TicketRecord | null>({ cmd: 'get_ticket_by_id' }, { id: ticketId })
+        .send<TicketRecord | null>(
+          { cmd: 'get_ticket_by_id' },
+          { id: ticketId },
+        )
         .pipe(
           timeout(RPC_TIMEOUT_MS),
           catchError((error) => {
@@ -164,7 +166,10 @@ export class ChatController {
   ): Promise<TicketRecord> {
     const ticket = await firstValueFrom(
       this.client
-        .send<TicketRecord | null>({ cmd: 'get_ticket_by_id' }, { id: ticketId })
+        .send<TicketRecord | null>(
+          { cmd: 'get_ticket_by_id' },
+          { id: ticketId },
+        )
         .pipe(
           timeout(RPC_TIMEOUT_MS),
           catchError((error) => {
@@ -208,14 +213,12 @@ export class ChatController {
 
   private async getThread(ticketId: string, tenantId: string) {
     return firstValueFrom(
-      this.client
-        .send({ cmd: 'get_chat_thread' }, { ticketId, tenantId })
-        .pipe(
-          timeout(RPC_TIMEOUT_MS),
-          catchError((error) => {
-            throw new RpcException(error);
-          }),
-        ),
+      this.client.send({ cmd: 'get_chat_thread' }, { ticketId, tenantId }).pipe(
+        timeout(RPC_TIMEOUT_MS),
+        catchError((error) => {
+          throw new RpcException(error);
+        }),
+      ),
     );
   }
 

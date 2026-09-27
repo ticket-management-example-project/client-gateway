@@ -128,14 +128,24 @@ describe('TicketController', () => {
 
     expect(client.send).toHaveBeenCalledWith(
       { cmd: 'get_tickets_by_requester' },
-      { tenantSlug: 'mi-empresa', requesterId: 'user_1', correlationId: 'req-2' },
+      {
+        tenantSlug: 'mi-empresa',
+        requesterId: 'user_1',
+        correlationId: 'req-2',
+      },
     );
     expect(result).toHaveLength(1);
   });
 
   it('getById() returns the Ticket when the caller is an Agent/owner of its Tenant', async () => {
     const { controller, client, tenantMembership } = makeController(
-      { id: '42', tenantId: 't-1', subject: 'Asunto', description: 'Descripción', status: 'open' },
+      {
+        id: '42',
+        tenantId: 't-1',
+        subject: 'Asunto',
+        description: 'Descripción',
+        status: 'open',
+      },
       true,
     );
 
@@ -145,7 +155,10 @@ describe('TicketController', () => {
       { cmd: 'get_ticket_by_id' },
       { id: '42' },
     );
-    expect(tenantMembership.isAgentOrOwner).toHaveBeenCalledWith('user_1', 't-1');
+    expect(tenantMembership.isAgentOrOwner).toHaveBeenCalledWith(
+      'user_1',
+      't-1',
+    );
     expect(result.id).toBe('42');
   });
 
@@ -183,7 +196,13 @@ describe('TicketController', () => {
 
   it('getById() throws ForbiddenException when the caller has no membership in the Ticket Tenant', async () => {
     const { controller } = makeController(
-      { id: '42', tenantId: 't-1', subject: 'Asunto', description: 'Descripción', status: 'open' },
+      {
+        id: '42',
+        tenantId: 't-1',
+        subject: 'Asunto',
+        description: 'Descripción',
+        status: 'open',
+      },
       false,
     );
 

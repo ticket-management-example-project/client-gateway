@@ -165,7 +165,10 @@ export class TicketController {
   ) {
     const ticket = await firstValueFrom(
       this.client
-        .send<TicketRecord | null>({ cmd: 'get_ticket_by_id' }, { id: ticketId })
+        .send<TicketRecord | null>(
+          { cmd: 'get_ticket_by_id' },
+          { id: ticketId },
+        )
         .pipe(
           timeout(RPC_TIMEOUT_MS),
           catchError((error) => {

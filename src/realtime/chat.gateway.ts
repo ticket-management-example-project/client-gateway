@@ -71,7 +71,10 @@ interface TicketRecord {
  * Neither credential present, or verification fails -> disconnect, never a
  * generic 500 (spec I/O matrix).
  */
-@WebSocketGateway({ namespace: '/chat', cors: { origin: true, credentials: true } })
+@WebSocketGateway({
+  namespace: '/chat',
+  cors: { origin: true, credentials: true },
+})
 export class ChatGateway implements OnGatewayConnection {
   private readonly logger = new Logger(ChatGateway.name);
 
@@ -108,10 +111,9 @@ export class ChatGateway implements OnGatewayConnection {
       try {
         const result = await firstValueFrom(
           this.client
-            .send<{ ticketId: string | null }>(
-              { cmd: 'verify_tracking_token' },
-              { token: trackingToken },
-            )
+            .send<{
+              ticketId: string | null;
+            }>({ cmd: 'verify_tracking_token' }, { token: trackingToken })
             .pipe(timeout(RPC_TIMEOUT_MS)),
         );
         if (!result?.ticketId) {
@@ -190,7 +192,10 @@ export class ChatGateway implements OnGatewayConnection {
   }
 
   /** Called by `ChatEventsConsumer` for every `ChatMessageSeen` consumed. */
-  broadcastMessageSeen(ticketId: string, payload: ChatMessageSeenPayload): void {
+  broadcastMessageSeen(
+    ticketId: string,
+    payload: ChatMessageSeenPayload,
+  ): void {
     this.server.to(this.room(ticketId)).emit(MESSAGE_SEEN_EVENT, payload);
   }
 
@@ -209,7 +214,8 @@ export class ChatGateway implements OnGatewayConnection {
       ),
     );
     return sockets.some(
-      (socket) => (socket.data as SocketData | undefined)?.actorType === 'requester',
+      (socket) =>
+        (socket.data as SocketData | undefined)?.actorType === 'requester',
     );
   }
 
@@ -234,7 +240,10 @@ export class ChatGateway implements OnGatewayConnection {
     try {
       return await firstValueFrom(
         this.client
-          .send<TicketRecord | null>({ cmd: 'get_ticket_by_id' }, { id: ticketId })
+          .send<TicketRecord | null>(
+            { cmd: 'get_ticket_by_id' },
+            { id: ticketId },
+          )
           .pipe(timeout(RPC_TIMEOUT_MS)),
       );
     } catch (error) {
@@ -254,10 +263,9 @@ export class ChatGateway implements OnGatewayConnection {
     try {
       return await firstValueFrom(
         this.client
-          .send<ChatMessagePayload[]>(
-            { cmd: 'get_chat_thread' },
-            { ticketId, tenantId },
-          )
+          .send<
+            ChatMessagePayload[]
+          >({ cmd: 'get_chat_thread' }, { ticketId, tenantId })
           .pipe(timeout(RPC_TIMEOUT_MS)),
       );
     } catch (error) {
@@ -270,7 +278,10 @@ export class ChatGateway implements OnGatewayConnection {
     }
   }
 
-  private async markSeen(ticketId: string, viewerType: ActorType): Promise<void> {
+  private async markSeen(
+    ticketId: string,
+    viewerType: ActorType,
+  ): Promise<void> {
     try {
       await firstValueFrom(
         this.client

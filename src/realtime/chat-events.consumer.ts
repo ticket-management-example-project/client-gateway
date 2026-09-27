@@ -1,6 +1,9 @@
 import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { firstValueFrom, from, timeout } from 'rxjs';
-import { DOMAIN_EVENT_CONSUMER, EMAIL_SENDER } from 'src/shared/config/services';
+import {
+  DOMAIN_EVENT_CONSUMER,
+  EMAIL_SENDER,
+} from 'src/shared/config/services';
 import {
   DomainEventConsumer,
   DomainEventMessage,
@@ -131,7 +134,8 @@ export class ChatEventsConsumer implements OnModuleInit {
       // Requester to reconnect in between, which would otherwise fire a
       // redundant email despite the AC "nunca se dispara un email" while
       // active.
-      const stillDisconnected = !(await this.gateway.isRequesterConnected(ticketId));
+      const stillDisconnected =
+        !(await this.gateway.isRequesterConnected(ticketId));
       if (!stillDisconnected) {
         return;
       }

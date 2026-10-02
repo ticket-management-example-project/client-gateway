@@ -18,6 +18,7 @@ import { CurrentUserId } from 'src/auth/current-user-id.decorator';
 import { NATS_SERVICE } from 'src/shared/config/services';
 import { RequestWithCorrelationId } from 'src/shared/middleware/correlation-id.middleware';
 import { TenantMembershipService } from 'src/tenant/tenant-membership.service';
+import { CorrectTriageDto } from './dto/correct-triage.dto';
 import { CreateTicketDto } from './dto/create-ticket.dto';
 
 const RPC_TIMEOUT_MS = 5000;
@@ -27,6 +28,22 @@ interface TicketRecord {
   tenantId: string;
   subject: string;
   description: string;
+  status: string;
+  categoryId?: string | null;
+  priority?: string | null;
+  suggestedAgentId?: string | null;
+  triageReview?: string | null;
+}
+
+interface TriageCategoryRecord {
+  id: string;
+  name: string;
+  isActive: boolean;
+}
+
+interface TriageAgentRecord {
+  id: string;
+  email: string;
   status: string;
 }
 
@@ -163,18 +180,124 @@ export class TicketController {
     @Param('ticketId') ticketId: string,
     @CurrentUserId() userId: string,
   ) {
-    const ticket = await firstValueFrom(
-      this.client
-        .send<TicketRecord | null>(
-          { cmd: 'get_ticket_by_id' },
-          { id: ticketId },
-        )
-        .pipe(
-          timeout(RPC_TIMEOUT_MS),
-          catchError((error) => {
-            throw new RpcException(error);
-          }),
-        ),
+    const ticket = await this.loadTicketForAgent(ticketId, userId);
+
+    // Explicit whitelist -- `get_ticket_by_id`'s NATS response also carries
+    // the Requester's `contactEmail` (Story 3.2), which only `ChatGateway`'s
+    // internal lookup needs; it must never reach this Agent-facing HTTP
+    // response. Story 5.2 adds the triage fields for `card-triage`.
+    return {
+      id: ticket.id,
+      tenantId: ticket.tenantId,
+      subject: ticket.subject,
+      description: ticket.description,
+      status: ticket.status,
+      categoryId: ticket.categoryId ?? null,
+      priority: ticket.priority ?? null,
+      suggestedAgentId: ticket.suggestedAgentId ?? null,
+      triageReview: ticket.triageReview ?? null,
+    };
+  }
+
+  /** Story 5.2: the human queue of one Tenant -- Agent-or-owner only. */
+  @Get('tenants/:tenantId/tickets')
+  @UseGuards(ClerkAuthGuard)
+  async listByTenant(
+    @Param('tenantId') tenantId: string,
+    @CurrentUserId() userId: string,
+  ) {
+    await this.assertTenantAccess(userId, tenantId);
+
+    return this.rpc({ cmd: 'list_tickets_by_tenant' }, { tenantId });
+  }
+
+  /** Story 5.2: names for the queue's category/agent columns and the
+   * options of "Corregir". Whitelisted shape -- no Clerk ids leave here. */
+  @Get('tenants/:tenantId/triage-options')
+  @UseGuards(ClerkAuthGuard)
+  async triageOptions(
+    @Param('tenantId') tenantId: string,
+    @CurrentUserId() userId: string,
+  ) {
+    await this.assertTenantAccess(userId, tenantId);
+
+    const [categories, agents] = await Promise.all([
+      this.rpc<TriageCategoryRecord[]>(
+        { cmd: 'list_tenant_categories' },
+        { tenantId },
+      ),
+      this.rpc<TriageAgentRecord[]>(
+        { cmd: 'list_tenant_agents' },
+        { tenantId },
+      ),
+    ]);
+
+    return {
+      categories: categories.map((c) => ({
+        id: c.id,
+        name: c.name,
+        isActive: c.isActive,
+      })),
+      agents: agents.map((a) => ({
+        id: a.id,
+        email: a.email,
+        status: a.status,
+      })),
+    };
+  }
+
+  /** Story 5.2 (FR10): "Confirmar" -- one click, no body. */
+  @Post('tickets/:ticketId/triage/confirm')
+  @HttpCode(200)
+  @UseGuards(ClerkAuthGuard)
+  async confirmTriage(
+    @Param('ticketId') ticketId: string,
+    @CurrentUserId() userId: string,
+  ) {
+    await this.loadTicketForAgent(ticketId, userId);
+
+    const changed = await this.rpc<boolean>(
+      { cmd: 'confirm_ticket_triage' },
+      { ticketId, reviewedBy: userId },
+    );
+    return { changed };
+  }
+
+  /** Story 5.2 (FR10): "Corregir" -- category/priority/agent, the Tenant's
+   * own options are validated by `ticket-microservice`. */
+  @Post('tickets/:ticketId/triage/correct')
+  @HttpCode(200)
+  @UseGuards(ClerkAuthGuard)
+  async correctTriage(
+    @Param('ticketId') ticketId: string,
+    @Body() dto: CorrectTriageDto,
+    @CurrentUserId() userId: string,
+  ) {
+    await this.loadTicketForAgent(ticketId, userId);
+
+    const changed = await this.rpc<boolean>(
+      { cmd: 'correct_ticket_triage' },
+      {
+        ticketId,
+        categoryId: dto.categoryId,
+        priority: dto.priority,
+        suggestedAgentId: dto.suggestedAgentId ?? null,
+        reviewedBy: userId,
+      },
+    );
+    return { changed };
+  }
+
+  /** Resolves a Ticket by id and enforces Tenant membership -- 404 when it
+   * doesn't exist, 403 for a non-member (shared by every Agent-side ticket
+   * endpoint). */
+  private async loadTicketForAgent(
+    ticketId: string,
+    userId: string,
+  ): Promise<TicketRecord> {
+    const ticket = await this.rpc<TicketRecord | null>(
+      { cmd: 'get_ticket_by_id' },
+      { id: ticketId },
     );
 
     if (!ticket) {
@@ -188,17 +311,30 @@ export class TicketController {
     if (!allowed) {
       throw new ForbiddenException('You do not have access to this Ticket');
     }
+    return ticket;
+  }
 
-    // Explicit whitelist -- `get_ticket_by_id`'s NATS response also carries
-    // the Requester's `contactEmail` (Story 3.2), which only `ChatGateway`'s
-    // internal lookup needs; it must never reach this Agent-facing HTTP
-    // response.
-    return {
-      id: ticket.id,
-      tenantId: ticket.tenantId,
-      subject: ticket.subject,
-      description: ticket.description,
-      status: ticket.status,
-    };
+  private async assertTenantAccess(
+    userId: string,
+    tenantId: string,
+  ): Promise<void> {
+    const allowed = await this.tenantMembership.isAgentOrOwner(
+      userId,
+      tenantId,
+    );
+    if (!allowed) {
+      throw new ForbiddenException('You do not have access to this Tenant');
+    }
+  }
+
+  private rpc<T = unknown>(pattern: object, payload: object): Promise<T> {
+    return firstValueFrom(
+      this.client.send<T>(pattern, payload).pipe(
+        timeout(RPC_TIMEOUT_MS),
+        catchError((error) => {
+          throw new RpcException(error);
+        }),
+      ),
+    );
   }
 }

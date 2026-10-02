@@ -183,6 +183,10 @@ describe('TicketController', () => {
       subject: 'Asunto',
       description: 'Descripción',
       status: 'open',
+      categoryId: null,
+      priority: null,
+      suggestedAgentId: null,
+      triageReview: null,
     });
   });
 
@@ -209,5 +213,124 @@ describe('TicketController', () => {
     await expect(controller.getById('42', 'user_2')).rejects.toThrow(
       'You do not have access to this Ticket',
     );
+  });
+
+  describe('Story 5.2: queue + triage review', () => {
+    const ticket = {
+      id: '42',
+      tenantId: 't-1',
+      subject: 'Asunto',
+      description: 'Descripción',
+      status: 'queued',
+    };
+
+    it('listByTenant() sends list_tickets_by_tenant for a member', async () => {
+      const { controller, client, tenantMembership } = makeController([]);
+
+      await controller.listByTenant('t-1', 'user_1');
+
+      expect(tenantMembership.isAgentOrOwner).toHaveBeenCalledWith(
+        'user_1',
+        't-1',
+      );
+      expect(client.send).toHaveBeenCalledWith(
+        { cmd: 'list_tickets_by_tenant' },
+        { tenantId: 't-1' },
+      );
+    });
+
+    it('listByTenant() is 403 for a non-member and never queries the queue', async () => {
+      const { controller, client } = makeController([], false);
+
+      await expect(controller.listByTenant('t-1', 'user_2')).rejects.toThrow(
+        'You do not have access to this Tenant',
+      );
+      expect(client.send).not.toHaveBeenCalled();
+    });
+
+    it('triageOptions() whitelists category/agent fields (no Clerk ids)', async () => {
+      const { controller, client } = makeController();
+      client.send.mockImplementation((pattern: { cmd: string }) =>
+        of(
+          pattern.cmd === 'list_tenant_categories'
+            ? [
+                {
+                  id: 'c1',
+                  name: 'Facturación',
+                  isActive: true,
+                  tenantId: 't-1',
+                },
+              ]
+            : [
+                {
+                  id: 'a1',
+                  email: 'v@example.com',
+                  status: 'active',
+                  clerkUserId: 'user_9',
+                },
+              ],
+        ),
+      );
+
+      const result = await controller.triageOptions('t-1', 'user_1');
+
+      expect(result).toEqual({
+        categories: [{ id: 'c1', name: 'Facturación', isActive: true }],
+        agents: [{ id: 'a1', email: 'v@example.com', status: 'active' }],
+      });
+    });
+
+    it('confirmTriage() checks membership of the ticket Tenant and forwards the caller as reviewer', async () => {
+      const { controller, client, tenantMembership } = makeController(ticket);
+      client.send.mockReturnValueOnce(of(ticket)).mockReturnValueOnce(of(true));
+
+      const result = await controller.confirmTriage('42', 'user_1');
+
+      expect(tenantMembership.isAgentOrOwner).toHaveBeenCalledWith(
+        'user_1',
+        't-1',
+      );
+      expect(client.send).toHaveBeenLastCalledWith(
+        { cmd: 'confirm_ticket_triage' },
+        { ticketId: '42', reviewedBy: 'user_1' },
+      );
+      expect(result).toEqual({ changed: true });
+    });
+
+    it('confirmTriage() is 403 for a member of another Tenant, 404 for an unknown ticket', async () => {
+      const forbidden = makeController(ticket, false);
+      await expect(
+        forbidden.controller.confirmTriage('42', 'user_2'),
+      ).rejects.toThrow('You do not have access to this Ticket');
+      expect(forbidden.client.send).toHaveBeenCalledTimes(1);
+
+      const missing = makeController(null);
+      await expect(
+        missing.controller.confirmTriage('nope', 'user_1'),
+      ).rejects.toThrow('Ticket not found');
+    });
+
+    it('correctTriage() forwards the correction with a null agent when omitted', async () => {
+      const { controller, client } = makeController(ticket);
+      client.send.mockReturnValueOnce(of(ticket)).mockReturnValueOnce(of(true));
+
+      const result = await controller.correctTriage(
+        '42',
+        { categoryId: 'c2', priority: 'media' },
+        'user_1',
+      );
+
+      expect(client.send).toHaveBeenLastCalledWith(
+        { cmd: 'correct_ticket_triage' },
+        {
+          ticketId: '42',
+          categoryId: 'c2',
+          priority: 'media',
+          suggestedAgentId: null,
+          reviewedBy: 'user_1',
+        },
+      );
+      expect(result).toEqual({ changed: true });
+    });
   });
 });
